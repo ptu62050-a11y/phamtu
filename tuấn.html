@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>NGÔI SAO TRI THỨC</title>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<style>
+body{margin:0;background:black;color:white;font-family:Arial;overflow:hidden;}
+#header{position:absolute;top:10px;left:20px;}
+#header h1{margin:0;font-size:26px;}
+button{margin:5px;padding:6px;}
+#tools{position:absolute;top:10px;right:20px;}
+#video{position:absolute;bottom:10px;right:10px;width:220px;border:2px solid white;}
+#quiz{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);text-align:center;}
+.opt{border:1px solid white;padding:10px;margin:5px;}
+canvas{display:block;}
+#modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+background:#222;padding:20px;display:none;}
+</style>
+</head>
+
+<body>
+
+<div id="header">
+<h1>NGÔI SAO TRI THỨC</h1>
+<button onclick="mode='roll'">Gọi Tên</button>
+<button onclick="mode='quiz'; showQ()">Trả Lời</button>
+</div>
+
+<div id="tools">
+<input type="file" id="file">
+<button onclick="openModal()">Chỉnh sửa câu hỏi</button>
+</div>
+
+<canvas id="c"></canvas>
+<video id="video" autoplay></video>
+
+<div id="quiz"></div>
+
+<div id="modal">
+<textarea id="qinput" rows="10" cols="40">
+[
+{"q":"2+2=?","a":"3","b":"4","c":"5","ans":"b"}
+]
+</textarea><br>
+<button onclick="saveQ()">Lưu</button>
+</div>
+
+<script>
+const canvas=document.getElementById("c");
+const ctx=canvas.getContext("2d");
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+let centerX=canvas.width/2, centerY=canvas.height/2;
+
+let students=["A","B","C","D"];
+let stars=[];
+let mode="roll";
+let freeze=false;
+
+// AUDIO
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function play(freq){
+let o=audioCtx.createOscillator();
+let g=audioCtx.createGain();
+o.connect(g); g.connect(audioCtx.destination);
+o.frequency.value=freq;
+o.start();
+g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.5);
+}
+
+// QUIZ
+let questions=[
+{"q":"2+2=?","a":"3","b":"4","c":"5","ans":"b"}
+];
+let qi=0;
+
+function openModal(){document.getElementById("modal").style.display="block";}
+function saveQ(){
+questions=JSON.parse(document.getElementById("qinput").value);
+document.getElementById("modal").style.display="none";
+}
+
+function showQ(){
+let q=questions[qi];
+document.getElementById("quiz").innerHTML=`
+<h2>${q.q}</h2>
+<div class="opt" id="a">A. ${q.a}</div>
+<div class="opt" id="b">B. ${q.b}</div>
+<div class="opt" id="c">C. ${q.c}</div>`;
+}
+
+function answer(k){
+let q=questions[qi];
+if(k==q.ans){
+document.getElementById(k).style.background="green";
+play(800);
+setTimeout(()=>{qi++;if(qi<questions.length)showQ();},2000);
+}else{
+document.getElementById(k).style.background="red";
+play(200);
+}
+}
+
+// STARS
+function createStars(){
+stars=[];
+students.forEach(n=>{
+stars.push({
+name:n,
+angle:Math.random()*6,
+r:200+Math.random()*100,
+sel:false,
+alpha:1
+});
+});
+}
+createStars();
+
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+// galaxy particles
+for(let i=0;i<100;i++){
+ctx.fillStyle="white";
+ctx.fillRect(Math.random()*canvas.width,Math.random()*canvas.height,1,1);
+}
+
+stars.forEach(s=>{
+if(!s.sel && !freeze) s.angle+=0.01;
+
+let x=centerX+Math.cos(s.angle)*s.r;
+let y=centerY+Math.sin(s.angle)*s.r;
+
+ctx.globalAlpha=s.alpha;
+ctx.beginPath();
+ctx.arc(x,y,30,0,6);
+ctx.fillStyle=s.sel?"green":"yellow";
+ctx.fill();
+
+ctx.fillStyle="black";
+ctx.fillText(s.name,x-10,y+5);
+ctx.globalAlpha=1;
+
+// fade
+if(s.sel && s.alpha>0){
+s.alpha-=0.01;
+}
+});
+
+requestAnimationFrame(draw);
+}
+draw();
+
+// PICK
+function pick(n){
+freeze=true;
+stars.forEach(s=>{s.sel=false; s.alpha=1;});
+for(let i=0;i<n;i++){
+let r=Math.floor(Math.random()*stars.length);
+stars[r].sel=true;
+}
+}
+
+// RESET
+function reset(){
+freeze=false;
+stars.forEach(s=>{s.sel=false; s.alpha=1;});
+}
+
+// FINGER COUNT
+function count(lm){
+let c=0;
+if(lm[4].x<lm[3].x) c++;
+let tips=[8,12,16,20];
+let dips=[6,10,14,18];
+for(let i=0;i<4;i++){
+if(lm[tips[i]].y<lm[dips[i]].y) c++;
+}
+return c;
+}
+
+// HANDLE
+function handle(f, lm){
+if(mode=="roll"){
+if(f==5) reset();
+if(f>=1&&f<=4) pick(f);
+if(f==0){
+centerX = lm[9].x * canvas.width;
+centerY = lm[9].y * canvas.height;
+}
+}
+
+if(mode=="quiz"){
+if(f==0){qi++;showQ();}
+if(f==1) answer("a");
+if(f==2) answer("b");
+if(f==3) answer("c");
+if(f==5){mode="roll";document.getElementById("quiz").innerHTML="";}
+}
+}
+
+// MEDIAPIPE
+const hands=new Hands({
+locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
+
+hands.setOptions({maxNumHands:1});
+
+hands.onResults(r=>{
+if(r.multiHandLandmarks.length){
+let lm=r.multiHandLandmarks[0];
+let f=count(lm);
+handle(f,lm);
+
+// draw skeleton
+lm.forEach(p=>{
+ctx.beginPath();
+ctx.arc(p.x*canvas.width,p.y*canvas.height,3,0,6);
+ctx.fillStyle="cyan";
+ctx.fill();
+});
+}
+});
+
+// CAMERA
+const cam=new Camera(video,{
+onFrame:async()=>await hands.send({image:video}),
+width:640,height:480
+});
+cam.start();
+
+// FILE
+document.getElementById("file").onchange=e=>{
+let reader=new FileReader();
+reader.onload=function(){
+students=reader.result.split("\n");
+createStars();
+}
+reader.readAsText(e.target.files[0]);
+};
+</script>
+
+</body>
+</html>
