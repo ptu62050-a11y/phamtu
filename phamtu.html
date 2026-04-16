@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>NGÔI SAO TRI THỨC</title>
+
+<style>
+body{
+    margin:0;
+    background:black;
+    color:white;
+    font-family:Arial;
+    overflow:hidden;
+}
+
+#title{
+    position:absolute;
+    top:10px;
+    left:20px;
+    font-size:26px;
+    font-weight:bold;
+}
+
+#guide{
+    position:absolute;
+    top:50px;
+    left:20px;
+    font-size:14px;
+    line-height:1.5;
+}
+
+#inputBox{
+    position:absolute;
+    top:10px;
+    right:20px;
+}
+
+canvas{
+    display:block;
+}
+</style>
+</head>
+
+<body>
+
+<div id="title">NGÔI SAO TRI THỨC</div>
+
+<div id="guide">
+🎮 Điều khiển:<br>
+1-4: Chọn học sinh<br>
+R: Reset<br>
+W A S D: Di chuyển<br>
+Enter: Cập nhật danh sách
+</div>
+
+<div id="inputBox">
+<input id="names" placeholder="Nhập tên: A,B,C,D..." style="width:200px;">
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// 🎯 DANH SÁCH
+let students = ["A","B","C","D","E","F","G","H"];
+let stars = [];
+
+let centerX = canvas.width/2;
+let centerY = canvas.height/2;
+
+// tạo sao
+function createStars(){
+    stars = [];
+    students.forEach(name=>{
+        stars.push({
+            name:name,
+            angle:Math.random()*Math.PI*2,
+            radius:200 + Math.random()*100,
+            selected:false
+        });
+    });
+}
+createStars();
+
+// 🎨 vẽ
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    stars.forEach(s=>{
+        if(!s.selected){
+            s.angle += 0.01;
+        }
+
+        let x = centerX + Math.cos(s.angle)*s.radius;
+        let y = centerY + Math.sin(s.angle)*s.radius;
+
+        ctx.beginPath();
+        ctx.arc(x,y,30,0,Math.PI*2);
+        ctx.fillStyle = s.selected ? "green":"yellow";
+        ctx.fill();
+
+        ctx.fillStyle="black";
+        ctx.fillText(s.name,x-10,y+5);
+    });
+
+    requestAnimationFrame(draw);
+}
+draw();
+
+// 🎯 chọn ngẫu nhiên
+function pickStudents(n){
+    let pick=[];
+    while(pick.length<n){
+        let r=Math.floor(Math.random()*stars.length);
+        if(!pick.includes(r)){
+            pick.push(r);
+        }
+    }
+
+    stars.forEach(s=>s.selected=false);
+    pick.forEach(i=>stars[i].selected=true);
+}
+
+// 🎮 KEYBOARD
+document.addEventListener("keydown", function(e){
+
+    if(e.key==="1") pickStudents(1);
+    if(e.key==="2") pickStudents(2);
+    if(e.key==="3") pickStudents(3);
+    if(e.key==="4") pickStudents(4);
+
+    if(e.key==="r" || e.key==="R"){
+        stars.forEach(s=>s.selected=false);
+    }
+
+    if(e.key==="w") centerY -= 30;
+    if(e.key==="s") centerY += 30;
+    if(e.key==="a") centerX -= 30;
+    if(e.key==="d") centerX += 30;
+
+    // nhập danh sách
+    if(e.key==="Enter"){
+        let input = document.getElementById("names").value;
+        if(input.trim()!==""){
+            students = input.split(",");
+            createStars();
+        }
+    }
+});
+</script>
+
+</body>
+</html>
